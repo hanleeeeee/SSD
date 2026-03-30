@@ -1,0 +1,58 @@
+```
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <string>
+#include <cstdio> // remove, rename 사용
+
+using namespace std;
+
+class FileStorage {
+    string filename = "data.bin";
+    string temp_filename = "data.bin.tmp";
+
+public:
+    bool updateData(int newValue) {
+        // 1. 임시 파일 생성 (Shadow Copy)
+        ofstream outFile(temp_filename, ios::binary);
+        if (!outFile) return false;
+
+        try {
+            for (int i = 0; i < 100; ++i) {
+                // 가상의 LBA 0~99 쓰기 수행
+                if (!simulateWrite(outFile, newValue, i)) {
+                    throw runtime_error("Write Failed at LBA " + to_string(i));
+                }
+            }
+            outFile.close();
+
+            // 2. 모든 쓰기 성공 시: 원본 삭제 후 임시 파일을 원본으로 변경
+            remove(filename.c_str()); 
+            if (rename(temp_filename.c_str(), filename.c_str()) == 0) {
+                cout << "SUCCESS" << endl;
+                return true;
+            }
+        } 
+        catch (const exception& e) {
+            // 3. 실패 시: 즉시 중단 및 임시 파일 삭제 (Rollback)
+            outFile.close();
+            remove(temp_filename.c_str());
+            cout << "ERROR: " << e.what() << endl;
+            cout << "Rollback: Original file remains unchanged." << endl;
+        }
+        return false;
+    }
+
+private:
+    bool simulateWrite(ofstream& f, int val, int lba) {
+        if (lba == 50) return false; // 50번 LBA에서 에러 가정
+        f.write(reinterpret_cast<char*>(&val), sizeof(val));
+        return f.good();
+    }
+};
+
+int main() {
+    FileStorage storage;
+    storage.updateData(777);
+    return 0;
+}
